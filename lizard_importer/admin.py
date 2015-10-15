@@ -22,7 +22,6 @@ EXCLUDED_APPS = [
     'sessions',
     'contenttypes',
     'sites',
-    #'lizard_impoter'
 ]
 
 

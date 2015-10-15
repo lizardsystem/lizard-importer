@@ -14,10 +14,15 @@ app.conf.update(
     CELERY_RESULT_BACKEND='djcelery.backends.database:DatabaseBackend',
     BROKER_URL='django://',
     CELERYBEAT_SCHEDULER='djcelery.schedulers.DatabaseScheduler',
-    CELERY_IMPORTS=("lizard_importer.tasks", ),
+    CELERY_IMPORTS=("", ),
 )
 
 
 @app.task(bind=True)
 def debug_task(self):
     print('Request: {0!r}'.format(self.request))
+
+
+@app.task(bind=True)
+def add(x, y):
+    return x + y
