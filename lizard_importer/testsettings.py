@@ -82,11 +82,10 @@ DATABASES = {
 SITE_ID = 1
 SECRET_KEY = 'This is not secret but that is ok.'
 INSTALLED_APPS = [
+    'celery',
+    'django_admin_bootstrapped',
     'lizard_importer',
-    'lizard_ui',
-    'south',
     'django_nose',
-    'lizard_security',
     'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -95,6 +94,8 @@ INSTALLED_APPS = [
     'django.contrib.gis',
     'django.contrib.sites',
     'django.contrib.staticfiles',
+    'kombu.transport.django',
+    'djcelery',
     ]
 ROOT_URLCONF = 'lizard_importer.urls'
 
@@ -105,8 +106,6 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'lizard_security.middleware.SecurityMiddleware',
-    'tls.TLSRequestMiddleware',
     )
 
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
@@ -121,6 +120,12 @@ STATICFILES_DIRS = [
     # ^^^ bower-managed files.
 ]
 
+from django.contrib import messages
+MESSAGE_TAGS = {
+            messages.SUCCESS: 'alert-success success',
+            messages.WARNING: 'alert-warning warning',
+            messages.ERROR: 'alert-danger error'
+}
 
 try:
     # Import local settings that aren't stored in svn/git.

@@ -7,7 +7,8 @@ from django.conf.urls import include
 from django.conf.urls import patterns
 from django.conf.urls import url
 from django.contrib import admin
-from lizard_ui.urls import debugmode_urlpatterns
+from django.conf import settings
+from django.conf.urls.static import static
 
 from lizard_importer import views
 
@@ -15,14 +16,9 @@ admin.autodiscover()
 
 urlpatterns = patterns(
     '',
-    url(r'^ui/', include('lizard_ui.urls')),
-    # url(r'^map/', include('lizard_map.urls')),
     url(r'^admin/', include(admin.site.urls)),
-    # url(r'^something/',
-    #     views.some_method,
-    #     name="name_it"),
-    # url(r'^something_else/$',
-    #     views.SomeClassBasedView.as_view(),
-    #     name='name_it_too'),
     )
-urlpatterns += debugmode_urlpatterns()
+
+if settings.DEBUG:
+    urlpatterns += static(
+        settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
