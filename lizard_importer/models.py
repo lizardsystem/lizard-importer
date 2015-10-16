@@ -41,7 +41,7 @@ class ImportFile(models.Model):
         null=True)
 
     def __unicode__(self):
-        import pdb; pdb.set_trace()
+        return self.attachment.name
     
     class Meta:
         ordering = ['uploaded_by']

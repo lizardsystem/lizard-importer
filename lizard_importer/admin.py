@@ -22,6 +22,9 @@ EXCLUDED_APPS = [
     'sessions',
     'contenttypes',
     'sites',
+    'djcelery',
+    'kombu',
+    'lizard_importer',
 ]
 
 
