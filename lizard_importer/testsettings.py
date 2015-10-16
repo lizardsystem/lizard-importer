@@ -127,6 +127,16 @@ MESSAGE_TAGS = {
             messages.ERROR: 'alert-danger error'
 }
 
+
+# celery settings
+# import djcelery
+CELERY_RESULT_BACKEND='djcelery.backends.database:DatabaseBackend'
+BROKER_URL='django://'
+CELERYBEAT_SCHEDULER='djcelery.schedulers.DatabaseScheduler'
+
+# lizard-importer settings
+UPLOAD_DIR = os.path.join(BUILDOUT_DIR, 'var', 'media')
+
 try:
     # Import local settings that aren't stored in svn/git.
     from lizard_importer.local_testsettings import *
