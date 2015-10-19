@@ -64,7 +64,6 @@ def fk_model_choices():
 
 
 def import_source(modeladmin, request, queryset):
-
     for source in queryset:
         if not source.active:
             messages.warning(
@@ -73,7 +72,7 @@ def import_source(modeladmin, request, queryset):
             )
             continue
 
-        send_task(
+        celery.app.send_task(
             source.task,
             mapping=source.mapping,
             import_file=source.import_file,
