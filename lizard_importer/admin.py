@@ -8,62 +8,22 @@ import celery
 from django import forms
 from django.contrib import admin
 from django.contrib import messages
-from django.db import models as django_models
+
 from django.utils.translation import ugettext_lazy as _
-from django_admin_bootstrapped.admin.models import SortableInline
 
 from lizard_importer import models
+from lizard_importer import utils
 
 
-EXCLUDED_APPS = [
-    'django',
-    'admin',
-    'auth',
-    'sessions',
-    'contenttypes',
-    'sites',
-    'djcelery',
-    'kombu',
-    'lizard_importer',
-]
+TASK_CHOICES = utils.task_choices()
+MODEL_CHOICES = utils.model_choices()
+FK_MODEL_CHOICES = utils.fk_model_choices()
 
 
-def task_choices():
-    tasks = [('', '')]
-    for task_name in celery.app.tasks.keys():
-        if not task_name.lower().startswith('celery'):
-            tasks.append((task_name, task_name))
-    return tasks
-
-
-def model_choices():
-    target_models = [('', '')]
-
-    for m in django_models.get_models():        
-        if m._meta.app_label not in EXCLUDED_APPS:
-            model_full_name = '%s.%s' % (
-                m._meta.app_label, m._meta.model_name)
-            target_models.append((model_full_name, model_full_name))
-    return target_models
-
-
-def fk_model_choices():
-    fk_models = []
-    related_models = {}
-
-    for m in django_models.get_models():        
-        if m._meta.app_label in EXCLUDED_APPS:
-            continue
-        for rel_field in m._meta.get_all_related_objects():
-            model_full_name = '%s.%s' % (
-                rel_field.model._meta.app_label, rel_field.model._meta.model_name)
-            related_models[model_full_name] = None
-    
-    fk_models += [(key, key) for key in related_models.keys()]
-    return fk_models
-
-
-def import_source(modeladmin, request, queryset):
+def run_source(modeladmin, request, queryset):
+    username = request.user.get_full_name()
+    if not username:
+        username = request.user.username
     for source in queryset:
         if not source.active:
             messages.warning(
@@ -71,16 +31,12 @@ def import_source(modeladmin, request, queryset):
                 _("Source '%s' is not active." % source.name)
             )
             continue
-
+        source_action_log = source.lizard_importer_sourceactionlog_set.create()
         celery.app.send_task(
             source.task,
-            mapping=source.mapping,
-            import_file=source.import_file,
-            ftp_location=source.ftp_location)
-        messages.success(
-            request,
-            _("Source '%s' is send to the worker.") % source.name)
-import_source.short_description = _("Import selected sources")
+            kwargs={'username': username,
+             'source_action_log_id': source_action_log.id})
+run_source.short_description = _("Run selected sources")
 
 
 @admin.register(models.ImportFile)
@@ -92,7 +48,12 @@ class ImportFileAdmin(admin.ModelAdmin):
     
 
 class TaskChoicesForm(forms.ModelForm):
-    task = forms.ChoiceField(choices=task_choices())
+    task = forms.ChoiceField(choices=TASK_CHOICES)
+
+
+class SourceActionLogInlineAdmin(admin.TabularInline):
+    model = models.SourceActionLog
+    extra = 0
 
 
 @admin.register(models.Source)
@@ -105,7 +66,9 @@ class SourceAdmin(admin.ModelAdmin):
               'mapping',
               'active']
     form = TaskChoicesForm
-    actions = [import_source]
+    actions = [run_source]
+    inlines = [SourceActionLogInlineAdmin]
+
 
 class DataTypeChoicesForm(forms.ModelForm):
     datatype_choices = [
@@ -115,7 +78,7 @@ class DataTypeChoicesForm(forms.ModelForm):
         ('float', 'float'),
         ('date', 'date'),
         ('time', 'time')
-    ] + fk_model_choices()
+    ] + FK_MODEL_CHOICES
 
     datatype = forms.ChoiceField(
         choices=datatype_choices,
@@ -124,7 +87,7 @@ class DataTypeChoicesForm(forms.ModelForm):
 
 
 class TargetTableChoicesForm(forms.ModelForm):
-    target_table = forms.ChoiceField(choices=model_choices)
+    target_table = forms.ChoiceField(choices=MODEL_CHOICES)
 
 
 class MappingFieldInlineAdmin(admin.TabularInline):

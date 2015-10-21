@@ -3,9 +3,15 @@
 from __future__ import unicode_literals
 from __future__ import print_function
 
+import os
+import glob
+from datetime import datetime
+
 from django.db import models
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
+
+from lizard_importer import utils
 
 
 class Mapping(models.Model):
@@ -42,11 +48,37 @@ class ImportFile(models.Model):
 
     def __unicode__(self):
         return self.attachment.name
-    
+
     class Meta:
         ordering = ['uploaded_by']
         verbose_name = _("Files")
         verbose_name_plural = _("Files")
+
+    @property
+    def has_attachment_file(self):
+        if not self.attachment:
+            return False
+        if not os.path.isfile(self.attachment.path):
+            return False
+        return True
+
+    @property
+    def has_csv_attachment(self):
+        if self.has_attachment_file:
+            file_ext = os.path.splitext(
+                self.attachment.file.name)[1]
+            if file_ext == '.csv':
+                return True
+        return False
+
+    @property
+    def has_xml_attachment(self):
+        if self.has_attachment_file:
+            file_ext = os.path.splitext(
+                self.attachment.file.name)[1]
+            if file_ext == '.xml':
+                return True
+        return False
 
 
 class FTPLocation(models.Model):
@@ -76,10 +108,7 @@ class FTPLocation(models.Model):
 
 class Source(models.Model):
 
-    name = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True)
+    name = models.CharField(max_length=255)
     import_file = models.ForeignKey(
         ImportFile,
         null=True,
@@ -98,12 +127,6 @@ class Source(models.Model):
        Mapping,
        blank=True,
        null=True)
-    validated = models.BooleanField(
-        verbose_name=_("validated"),
-        default=False)
-    imported = models.BooleanField(
-        verbose_name=_("imported"),
-        default=False)
     active = models.BooleanField(default=True)
     task = models.CharField(max_length=250,
                             null=True,
@@ -112,29 +135,20 @@ class Source(models.Model):
     def __unicode__(self):
         return 'import run %s' % (self.name)
 
-    @property
-    def has_attachment_file(self):
-        if not self.attachment:
-            return False
-        if not os.path.isfile(self.attachment.path):
-            return False
-        return True
-
-    @property
-    def has_csv_attachment(self):
-        if self.has_attachment_file:
-            file_ext = os.path.splitext(self.attachment.file.name)[1]
-            if file_ext == '.csv':
-                return True
-        return False
-
-    @property
-    def has_xml_attachment(self):
-        if self.has_attachment_file:
-            file_ext = os.path.splitext(self.attachment.file.name)[1]
-            if file_ext == '.xml':
-                return True
-        return False
+    def get_csv_files(self):
+        if self.import_file:
+            if self.import_file.has_csv_attachment:
+                return [self.import_file.attachment.path]
+            else:
+                return []
+        elif self.import_dir:
+            if os.path.isdir(self.import_dir):
+                return glob.glob(os.path.join(
+                    self.import_dir, '*.csv'))
+            else:
+                return []
+        else:
+            return []
 
     def can_run_any_action(self):
         """Check fields of import_run."""
@@ -162,6 +176,45 @@ class Source(models.Model):
             messages.append("geen activiteit")
             can_run = False
         return (can_run, messages)
+
+
+class SourceActionLog(models.Model):
+    """Log source actions."""
+    
+    CSV_CHECK = _("CSV-CHECK")
+    CSV_IMPORT = _("CSV-IMPORT")
+    RUN_TYPE = [
+        (CSV_CHECK, CSV_CHECK),
+        (CSV_IMPORT, CSV_IMPORT)
+    ]
+
+    runtype = models.CharField(
+        max_length=50,
+        choices=RUN_TYPE)
+    run_date = models.DateTimeField(
+        blank=True,
+        null=True)
+    run_by = models.CharField(max_length=255)
+    source = models.ForeignKey(
+        Source,
+        related_name="%(app_label)s_%(class)s_set")
+    validated = models.BooleanField(
+        verbose_name=_("validated"),
+        default=False)
+    imported = models.BooleanField(
+        verbose_name=_("imported"),
+        default=False)
+    action_log = models.TextField(
+        null=True,
+        blank=True)
+
+    class Meta:
+        ordering = ['source__name', '-run_date']
+        verbose_name = _("Source Action Log")
+        verbose_name_plural = _("Source Action Log")
+
+    def __unicode__(self):
+        return self.source.name
 
     def add_log_line(self, text, username=None):
         """Add log text including timestamp."""
